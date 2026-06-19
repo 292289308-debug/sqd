@@ -33,10 +33,11 @@ async def get_kline(
     start: Optional[date] = Query(None),
     end: Optional[date] = Query(None),
     limit: int = Query(500, le=5000),
+    indicators: str = Query("", description="逗号分隔, 支持: MA5,MA10,MA20,MA60,EMA12,EMA26,MACD,RSI,BOLL,KDJ,VOL_MA5"),
 ):
     """
-    获取 K 线数据
-    - MVP 阶段从本地 CSV 读取 (scripts/fetch_history.py 同步)
+    获取 K 线数据 + 可选技术指标
+    - MVP 阶段从本地 CSV 读取
     - 后续接 TimescaleDB 时序数据库
     """
     df = _load_kline_csv(ts_code, freq)
@@ -46,7 +47,7 @@ async def get_kline(
             "freq": freq,
             "count": 0,
             "items": [],
-            "_hint": "本地无数据, 请先运行 scripts/fetch_history.py 同步",
+            "_hint": "本地无数据, 请先运行 scripts/fetch_real_data.py 同步",
         }
     if start:
         df = df[df["trade_date"] >= pd.Timestamp(start)]
@@ -54,9 +55,16 @@ async def get_kline(
         df = df[df["trade_date"] <= pd.Timestamp(end)]
     df = df.sort_values("trade_date", ascending=False).head(limit)
     df = df.sort_values("trade_date", ascending=True)
+
+    # 计算指标
+    ind_list = [x.strip() for x in indicators.split(",") if x.strip()] if indicators else []
+    if ind_list:
+        from app.services.indicators import attach_indicators
+        df = attach_indicators(df, ind_list)
+
     items = []
     for _, r in df.iterrows():
-        items.append({
+        item = {
             "trade_date": r["trade_date"].strftime("%Y-%m-%d"),
             "open": float(r["open"]),
             "high": float(r["high"]),
@@ -64,11 +72,21 @@ async def get_kline(
             "close": float(r["close"]),
             "vol": int(r.get("vol", 0)),
             "amount": float(r.get("amount", 0)),
-        })
+        }
+        # 附加指标
+        for col in ["MA5", "MA10", "MA20", "MA60", "EMA12", "EMA26",
+                    "MACD_DIF", "MACD_DEA", "MACD_HIST",
+                    "RSI14", "BOLL_MID", "BOLL_UPPER", "BOLL_LOWER",
+                    "KDJ_K", "KDJ_D", "KDJ_J", "VOL_MA5"]:
+            if col in df.columns:
+                v = float(r[col])
+                item[col] = round(v, 4) if abs(v) < 1e6 else round(v, 2)
+        items.append(item)
     return {
         "ts_code": ts_code,
         "freq": freq,
         "count": len(items),
+        "indicators": ind_list,
         "items": items,
     }
 

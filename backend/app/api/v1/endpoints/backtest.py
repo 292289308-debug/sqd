@@ -65,8 +65,7 @@ async def list_runs(limit: int = 20):
 
 def _do_backtest(req: BacktestRequest) -> dict:
     """
-    MVP 简化版回测 - 双均线示例
-    真实版用 backtrader / 自研事件驱动
+    多策略回测 (v0.2)
     """
     # 延迟导入,避免启动时依赖
     from app.services.backtest_engine import BacktestEngine
@@ -75,4 +74,4 @@ def _do_backtest(req: BacktestRequest) -> dict:
         commission_rate=req.commission_rate,
         slippage=req.slippage,
     )
-    return engine.run_dual_ma(req.start_date, req.end_date, req.universe, req.strategy_id)
+    return engine.run(req.strategy_id, req.start_date, req.end_date, req.universe)

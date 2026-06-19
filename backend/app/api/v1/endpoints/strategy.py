@@ -13,27 +13,56 @@ router = APIRouter()
 TEMPLATES_FILE = Path(__file__).resolve().parents[5] / "data" / "strategies_demo.json"
 
 
-def _load_templates():
+def _load_demo():
+    """加载 demo JSON (包含代码示例)"""
     if not TEMPLATES_FILE.exists():
-        return []
-    return json.loads(TEMPLATES_FILE.read_text(encoding="utf-8"))
+        return {}
+    items = json.loads(TEMPLATES_FILE.read_text(encoding="utf-8"))
+    return {t["id"]: t for t in items}
+
+
+def _get_engine_strategies():
+    """从引擎动态加载策略定义"""
+    from app.services.backtest_engine import STRATEGIES
+    return STRATEGIES
 
 
 @router.get("/templates")
 async def list_templates(category: Optional[str] = None):
-    """内置策略模板"""
-    templates = _load_templates()
+    """内置策略模板 - 从 backtest_engine 动态加载"""
+    strategies = _get_engine_strategies()
+    items = []
+    for sid, meta in strategies.items():
+        item = {
+            "id": sid,
+            "name": meta["name"],
+            "category": meta["category"],
+            "description": meta["description"],
+            "params": meta["params"],
+        }
+        items.append(item)
     if category:
-        templates = [t for t in templates if t.get("category") == category]
-    return {"count": len(templates), "items": templates}
+        items = [i for i in items if i["category"] == category]
+    return {"count": len(items), "items": items}
 
 
 @router.get("/templates/{strategy_id}")
 async def get_template(strategy_id: str):
-    for t in _load_templates():
-        if t["id"] == strategy_id:
-            return t
-    raise HTTPException(404, "策略不存在")
+    strategies = _get_engine_strategies()
+    if strategy_id not in strategies:
+        raise HTTPException(404, "策略不存在")
+    meta = strategies[strategy_id]
+    # 附带 demo 代码
+    demo = _load_demo()
+    code = demo.get(strategy_id, {}).get("code", "# 见 app/services/backtest_engine.py")
+    return {
+        "id": strategy_id,
+        "name": meta["name"],
+        "category": meta["category"],
+        "description": meta["description"],
+        "params": meta["params"],
+        "code": code,
+    }
 
 
 class CustomStrategy(BaseModel):

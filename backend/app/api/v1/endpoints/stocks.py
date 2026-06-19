@@ -17,12 +17,42 @@ def _load_stocks():
     global _STOCKS_CACHE
     if _STOCKS_CACHE is not None:
         return _STOCKS_CACHE
-    # 内置一个最小的演示列表 (后续 Tushare stock_basic 全量同步)
-    demo_path = Path(__file__).resolve().parents[5] / "data" / "stocks_demo.json"
+    data_dir = Path(__file__).resolve().parents[5] / "data"
+    # 加载 demo (补 name 补业) + top100/stocks.json
+    demo_map = {}
+    demo_path = data_dir / "stocks_demo.json"
     if demo_path.exists():
-        _STOCKS_CACHE = json.loads(demo_path.read_text(encoding="utf-8"))
-    else:
-        _STOCKS_CACHE = []
+        for s in json.loads(demo_path.read_text(encoding="utf-8")):
+            demo_map[s["ts_code"]] = s
+    # 优先级: stocks.json > top100.json > stocks_demo.json
+    items = []
+    for filename in ("stocks.json", "top100.json"):
+        path = data_dir / filename
+        if path.exists():
+            try:
+                items = json.loads(path.read_text(encoding="utf-8"))
+                break
+            except Exception as e:
+                print(f"[_load_stocks] {filename} parse err: {e}")
+    if not items:
+        items = list(demo_map.values())
+    # 补齐 name/industry
+    normalized = []
+    for s in items:
+        ts_code = s.get("ts_code", "")
+        sym = ts_code.split(".")[0] if ts_code else ""
+        mkt = ts_code.split(".")[-1] if ts_code else ""
+        # 从 demo 补 name/industry
+        demo = demo_map.get(ts_code, {})
+        normalized.append({
+            "ts_code": ts_code,
+            "symbol": sym,
+            "name": s.get("name") or demo.get("name", ""),
+            "industry": s.get("industry") or demo.get("industry", ""),
+            "list_date": s.get("list_date", ""),
+            "market": s.get("market", mkt),
+        })
+    _STOCKS_CACHE = normalized
     return _STOCKS_CACHE
 
 

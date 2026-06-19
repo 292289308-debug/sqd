@@ -4,66 +4,39 @@
     "name": "双均线 (5/20)",
     "category": "trend",
     "description": "MA5 上穿 MA20 买入, 下穿卖出。经典趋势策略。",
-    "params": {
-      "short": 5,
-      "long": 20
-    },
-    "code": "# 见 app/services/backtest_engine.py run_dual_ma"
+    "params": {"short": 5, "long": 20},
+    "code": "# 双均线 (5/20)\n# MA5 上穿 MA20 买入, 下穿卖出\nshort = params.get('short', 5)\nlong = params.get('long', 20)\nma_short = close.rolling(short).mean()\nma_long = close.rolling(long).mean()\nbuy = ma_short > ma_long\nsell = ma_short < ma_long"
   },
   {
     "id": "dual_ma_10_30",
     "name": "双均线 (10/30)",
     "category": "trend",
     "description": "中线版双均线, MA10/MA30。",
-    "params": {
-      "short": 10,
-      "long": 30
-    },
-    "code": "TBD"
+    "params": {"short": 10, "long": 30},
+    "code": "# 双均线 (10/30)\nshort = params.get('short', 10)\nlong = params.get('long', 30)\nma_short = close.rolling(short).mean()\nma_long = close.rolling(long).mean()\nbuy = ma_short > ma_long\nsell = ma_short < ma_long"
   },
   {
     "id": "turtle_breakout",
     "name": "海龟突破 (20日)",
     "category": "trend",
-    "description": "突破 20 日高点买入, 跌破 10 日低点卖出。",
-    "params": {
-      "entry": 20,
-      "exit": 10
-    },
-    "code": "TBD"
+    "description": "突破 20 日高点买入, 跌破 10 日低点卖出。理查德·丹尼斯经典策略。",
+    "params": {"entry": 20, "exit": 10},
+    "code": "# 海龟突破\nentry_period = params.get('entry', 20)\nexit_period = params.get('exit', 10)\n# 突破昨日 20 日高点买入\nhigh_entry = high.rolling(entry_period).max().shift(1)\nlow_exit = low.rolling(exit_period).min().shift(1)\nbuy = close > high_entry\nsell = close < low_exit"
   },
   {
     "id": "bollinger_revert",
-    "name": "布林带回归",
+    "name": "布林带回归 (20日, 2σ)",
     "category": "mean_reversion",
-    "description": "触及下轨买入, 触及上轨卖出。",
-    "params": {
-      "period": 20,
-      "std": 2
-    },
-    "code": "TBD"
+    "description": "触及下轨买入, 触及上轨卖出。均值回归思路。",
+    "params": {"period": 20, "std": 2},
+    "code": "# 布林带回归\nperiod = params.get('period', 20)\nstd_n = params.get('std', 2)\nmid = close.rolling(period).mean()\nsigma = close.rolling(period).std()\nupper = mid + std_n * sigma\nlower = mid - std_n * sigma\nbuy = close < lower\nsell = close > upper"
   },
   {
     "id": "rsi_revert",
-    "name": "RSI 反转",
+    "name": "RSI 反转 (14日)",
     "category": "mean_reversion",
-    "description": "RSI<30 买入, RSI>70 卖出。",
-    "params": {
-      "buy": 30,
-      "sell": 70,
-      "period": 14
-    },
-    "code": "TBD"
-  },
-  {
-    "id": "momentum_12_1",
-    "name": "12-1 动量",
-    "category": "factor",
-    "description": "买入过去 12 月涨跌幅最高, 跳过最近 1 月 (避免反转)。",
-    "params": {
-      "lookback": 12,
-      "skip": 1
-    },
-    "code": "TBD"
+    "description": "RSI<30 买入, RSI>70 卖出。经典超买超卖指标。",
+    "params": {"buy": 30, "sell": 70, "period": 14},
+    "code": "# RSI 反转\nperiod = params.get('period', 14)\nbuy_th = params.get('buy', 30)\nsell_th = params.get('sell', 70)\ndelta = close.diff()\ngain = delta.where(delta > 0, 0).rolling(period).mean()\nloss = (-delta.where(delta < 0, 0)).rolling(period).mean()\nrs = gain / (loss + 1e-9)\nrsi = 100 - 100 / (1 + rs)\nbuy = rsi < buy_th\nsell = rsi > sell_th"
   }
 ]

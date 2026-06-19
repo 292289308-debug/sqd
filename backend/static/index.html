@@ -73,12 +73,14 @@
     .nav-item .icon { display: inline-block; width: 20px; }
 
     /* Main */
-    .main { flex: 1; padding: 24px; overflow-y: auto; }
+    .main { flex: 1; padding: 24px; overflow-y: auto; padding-bottom: 50px; }
     .page-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
     }
     .page-header h2 { font-size: 20px; font-weight: 600; }
     .badge {
@@ -165,7 +167,19 @@
       margin-top: 16px;
     }
     .chart-container h3 { margin-bottom: 12px; font-size: 14px; font-weight: 500; }
-    #klineChart, #equityChart { width: 100%; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .indicator-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+    .ind-btn {
+      padding: 4px 10px;
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .ind-btn.active { background: var(--blue); color: white; border-color: var(--blue); }
+    #klineChart, #volumeChart, #equityChart { width: 100%; }
 
     /* Form */
     .form-row {
@@ -201,6 +215,11 @@
     }
     .stat-card .label { font-size: 11px; color: var(--text-dim); }
     .stat-card .value { font-size: 18px; font-weight: 600; margin-top: 4px; }
+
+    /* Strategy compare */
+    .compare-table th, .compare-table td { padding: 8px 12px; }
+    .compare-table .pos { color: var(--green); font-weight: 600; }
+    .compare-table .neg { color: var(--red); }
 
     /* Loading */
     .loading {
@@ -253,7 +272,7 @@
     <div class="sidebar">
       <div class="logo">
         <h1>灵眸量化</h1>
-        <div class="subtitle">SmartQuant Dashboard v0.1</div>
+        <div class="subtitle">SmartQuant Dashboard v0.2</div>
       </div>
       <div v-for="item in nav" :key="item.id"
            :class="['nav-item', { active: currentPage === item.id }]"
@@ -303,7 +322,7 @@
             <tr><th>代码</th><th>名称</th><th>行业</th><th>市场</th><th>操作</th></tr>
           </thead>
           <tbody>
-            <tr v-for="s in stocks.slice(0, 20)" :key="s.ts_code" @click="openKline(s)">
+            <tr v-for="s in stocks.slice(0, 30)" :key="s.ts_code" @click="openKline(s)">
               <td><code style="color:var(--blue)">{{ s.ts_code }}</code></td>
               <td>{{ s.name }}</td>
               <td>{{ s.industry }}</td>
@@ -318,7 +337,7 @@
       <!-- K-Line page -->
       <div v-if="currentPage === 'kline'">
         <div class="page-header">
-          <h2>K 线图 <span class="badge">{{ selectedStock?.ts_code }} {{ selectedStock?.name }}</span></h2>
+          <h2>K 线图 <span class="badge" v-if="selectedStock">{{ selectedStock.ts_code }} {{ selectedStock.name }}</span></h2>
           <div>
             <select v-model="klineFreq" @change="loadKline" style="padding:6px 10px;background:#0d1117;border:1px solid var(--border);color:var(--text);border-radius:4px;">
               <option value="1d">日线</option>
@@ -330,13 +349,29 @@
         </div>
 
         <div class="chart-container">
-          <h3>价格走势 (OHLC)</h3>
-          <div id="klineChart" style="height: 400px;"></div>
+          <div class="chart-header">
+            <h3>价格走势 + 均线叠加</h3>
+            <div class="indicator-toggles">
+              <button v-for="ind in maIndicators" :key="ind.id"
+                      :class="['ind-btn', { active: activeIndicators.includes(ind.id) }]"
+                      @click="toggleIndicator(ind.id)">
+                {{ ind.label }}
+              </button>
+              <button :class="['ind-btn', { active: activeIndicators.includes('BOLL') }]"
+                      @click="toggleIndicator('BOLL')">BOLL</button>
+            </div>
+          </div>
+          <div id="klineChart" style="height: 420px;"></div>
+        </div>
+
+        <div class="chart-container">
+          <h3>成交量</h3>
+          <div id="volumeChart" style="height: 150px;"></div>
         </div>
 
         <h3 style="margin-top:24px;margin-bottom:12px;font-size:14px;">最近 20 日数据</h3>
         <table v-if="klineData.length">
-          <thead><tr><th>日期</th><th>开</th><th>高</th><th>低</th><th>收</th><th>成交量</th></tr></thead>
+          <thead><tr><th>日期</th><th>开</th><th>高</th><th>低</th><th>收</th><th>成交量</th><th v-if="activeIndicators.includes('RSI')">RSI</th></tr></thead>
           <tbody>
             <tr v-for="(k, i) in klineData.slice(-20).reverse()" :key="i">
               <td>{{ k.trade_date }}</td>
@@ -344,7 +379,10 @@
               <td class="up">{{ k.high.toFixed(2) }}</td>
               <td class="down">{{ k.low.toFixed(2) }}</td>
               <td><strong>{{ k.close.toFixed(2) }}</strong></td>
-              <td>{{ k.vol.toLocaleString() }}</td>
+              <td>{{ (k.vol / 10000).toFixed(2) }}万</td>
+              <td v-if="k.RSI14 !== undefined" :class="k.RSI14 > 70 ? 'down' : k.RSI14 < 30 ? 'up' : ''">
+                {{ k.RSI14.toFixed(1) }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -362,7 +400,7 @@
           <div class="form-row">
             <label>策略</label>
             <select v-model="btForm.strategy_id">
-              <option v-for="t in strategyTemplates" :key="t.id" :value="t.id">{{ t.name }}</option>
+              <option v-for="t in strategyTemplates" :key="t.id" :value="t.id">{{ t.name }} ({{ t.category }})</option>
             </select>
           </div>
           <div class="form-row">
@@ -382,12 +420,15 @@
           </div>
           <button class="btn" @click="runBacktest" :disabled="btRunning">
             <span v-if="btRunning"><span class="spinner"></span>回测中...</span>
-            <span v-else>▶ 运行回测</span>
+            <span v-else>运行回测</span>
+          </button>
+          <button class="btn btn-secondary" @click="runAllStrategiesCompare" :disabled="btRunning" style="margin-left:8px;">
+            一键对比全部策略
           </button>
         </div>
 
         <div v-if="lastResult" class="chart-container">
-          <h3>回测结果 (主标的: {{ lastResult.main_code || '无' }})</h3>
+          <h3>回测结果 ({{ lastResult.strategy_id }}) 主标的: {{ lastResult.main_code || '无' }}</h3>
           <div class="stat-grid">
             <div class="stat-card">
               <div class="label">总收益</div>
@@ -432,8 +473,8 @@
           <h3 style="margin-top:24px;">净值曲线 (策略 vs 基准)</h3>
           <div id="equityChart" style="height: 320px;"></div>
 
-          <h3 style="margin-top:24px;" v-if="lastResult.trades.length">交易记录</h3>
-          <table v-if="lastResult.trades.length">
+          <h3 style="margin-top:24px;" v-if="lastResult.trades.length">交易记录 (最近 50 笔)</h3>
+          <table v-if="lastResult.trades.length" class="compare-table">
             <thead><tr><th>日期</th><th>代码</th><th>方向</th><th>价格</th></tr></thead>
             <tbody>
               <tr v-for="(t, i) in lastResult.trades" :key="i">
@@ -448,8 +489,34 @@
           </table>
         </div>
 
+        <div v-if="compareResults.length" class="chart-container">
+          <h3>策略对比 ({{ compareResults.length }} 个策略 × {{ compareResults[0]?.main_code || '主标的' }})</h3>
+          <table class="compare-table">
+            <thead>
+              <tr><th>策略</th><th>总收益</th><th>年化</th><th>Alpha</th><th>夏普</th><th>回撤</th><th>笔数</th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in compareResults" :key="r.strategy_id">
+                <td><code style="color:var(--blue)">{{ r.strategy_id }}</code></td>
+                <td :class="r.metrics.total_return >= 0 ? 'pos' : 'neg'">
+                  {{ (r.metrics.total_return * 100).toFixed(2) }}%
+                </td>
+                <td :class="r.metrics.annual_return >= 0 ? 'pos' : 'neg'">
+                  {{ (r.metrics.annual_return * 100).toFixed(2) }}%
+                </td>
+                <td :class="r.metrics.alpha >= 0 ? 'pos' : 'neg'">
+                  {{ (r.metrics.alpha * 100).toFixed(2) }}%
+                </td>
+                <td>{{ r.metrics.sharpe_ratio.toFixed(2) }}</td>
+                <td class="neg">{{ (r.metrics.max_drawdown * 100).toFixed(2) }}%</td>
+                <td>{{ r.metrics.trade_count }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <h3 style="margin-top:24px;margin-bottom:12px;font-size:14px;">历史回测 ({{ backtestRuns.length }})</h3>
-        <table v-if="backtestRuns.length">
+        <table v-if="backtestRuns.length" class="compare-table">
           <thead><tr><th>Run ID</th><th>策略</th><th>状态</th><th>时间</th></tr></thead>
           <tbody>
             <tr v-for="r in backtestRuns.slice(0, 10)" :key="r.id">
@@ -469,7 +536,7 @@
         </div>
         <div v-for="g in watchlist.groups" :key="g.name" style="margin-bottom: 20px;">
           <h3 style="margin-bottom: 12px;">{{ g.name }} ({{ g.items.length }})</h3>
-          <table v-if="g.items.length">
+          <table v-if="g.items.length" class="compare-table">
             <thead><tr><th>代码</th><th>名称</th><th>操作</th></tr></thead>
             <tbody>
               <tr v-for="i in g.items" :key="i.ts_code" @click="openKline(i)">
@@ -488,8 +555,8 @@
     <div class="status-bar">
       <span><span class="dot"></span>后端 API: {{ apiBase }}</span>
       <span>Phase: <strong style="color:var(--blue)">MVP A+B</strong></span>
-      <span>v0.1.0</span>
-      <span style="margin-left:auto">© 2026 灵眸量化</span>
+      <span>5 个策略</span>
+      <span style="margin-left:auto">v0.2.0</span>
     </div>
   </div>
 
@@ -502,7 +569,7 @@
     createApp({
       setup() {
         const currentPage = ref('dashboard');
-        const apiBase = ref(API_BASE);
+        const apiBase = ref(API_BASE || window.location.origin);
 
         // --- Nav ---
         const nav = [
@@ -550,11 +617,29 @@
           alert(`已添加 ${s.name} 到自选股`);
         };
 
-        // --- K Line ---
+        // --- K Line (with indicators) ---
         const selectedStock = ref(null);
         const klineFreq = ref('1d');
         const klineData = ref([]);
+        const activeIndicators = ref(['MA5', 'MA10', 'MA20']);
+        const maIndicators = [
+          { id: 'MA5', label: 'MA5', color: '#ffa657' },
+          { id: 'MA10', label: 'MA10', color: '#d2a8ff' },
+          { id: 'MA20', label: 'MA20', color: '#ff7b72' },
+          { id: 'MA60', label: 'MA60', color: '#79c0ff' },
+          { id: 'EMA12', label: 'EMA12', color: '#56d364' },
+          { id: 'EMA26', label: 'EMA26', color: '#e3b341' },
+        ];
         let klineChart = null;
+        let volumeChart = null;
+        let lineSeriesMap = {};
+
+        const toggleIndicator = (id) => {
+          const idx = activeIndicators.value.indexOf(id);
+          if (idx >= 0) activeIndicators.value.splice(idx, 1);
+          else activeIndicators.value.push(id);
+          loadKline();
+        };
 
         const openKline = async (s) => {
           selectedStock.value = s;
@@ -565,11 +650,17 @@
         const loadKline = async () => {
           if (!selectedStock.value) return;
           const r = await axios.get(`${API_BASE}/api/v1/kline/`, {
-            params: { ts_code: selectedStock.value.ts_code, freq: klineFreq.value, limit: 200 }
+            params: {
+              ts_code: selectedStock.value.ts_code,
+              freq: klineFreq.value,
+              limit: 500,
+              indicators: activeIndicators.value.join(',') + ',VOL_MA5'
+            }
           });
           klineData.value = r.data.items;
           await nextTick();
           renderKlineChart();
+          renderVolumeChart();
         };
 
         const renderKlineChart = () => {
@@ -577,13 +668,15 @@
           if (!container || !klineData.value.length) return;
 
           if (klineChart) klineChart.remove();
+          lineSeriesMap = {};
           klineChart = LightweightCharts.createChart(container, {
             width: container.clientWidth,
-            height: 400,
+            height: 420,
             layout: { background: { color: '#0d1117' }, textColor: '#c9d1d9' },
             grid: { vertLines: { color: '#30363d' }, horzLines: { color: '#30363d' } },
             timeScale: { borderColor: '#30363d' },
             rightPriceScale: { borderColor: '#30363d' },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
           });
 
           const candleSeries = klineChart.addCandlestickSeries({
@@ -591,30 +684,100 @@
             borderUpColor: '#3fb950', borderDownColor: '#f85149',
             wickUpColor: '#3fb950', wickDownColor: '#f85149',
           });
-
           candleSeries.setData(klineData.value.map(k => ({
             time: k.trade_date,
             open: k.open, high: k.high, low: k.low, close: k.close,
           })));
 
+          // 叠加均线 / BOLL
+          const colorMap = {
+            MA5: '#ffa657', MA10: '#d2a8ff', MA20: '#ff7b72', MA60: '#79c0ff',
+            EMA12: '#56d364', EMA26: '#e3b341',
+            BOLL_UPPER: '#8b949e', BOLL_MID: '#ffa657', BOLL_LOWER: '#8b949e',
+          };
+          for (const ind of activeIndicators.value) {
+            if (ind === 'BOLL') {
+              ['BOLL_UPPER', 'BOLL_MID', 'BOLL_LOWER'].forEach(b => {
+                const s = klineChart.addLineSeries({
+                  color: colorMap[b], lineWidth: 1,
+                  lineStyle: b === 'BOLL_MID' ? 0 : 2,
+                });
+                s.setData(klineData.value.filter(k => k[b] !== undefined).map(k => ({
+                  time: k.trade_date, value: k[b]
+                })));
+                lineSeriesMap[b] = s;
+              });
+            } else {
+              const s = klineChart.addLineSeries({
+                color: colorMap[ind] || '#58a6ff', lineWidth: ind.startsWith('MA') ? 1 : 1,
+              });
+              s.setData(klineData.value.filter(k => k[ind] !== undefined).map(k => ({
+                time: k.trade_date, value: k[ind]
+              })));
+              lineSeriesMap[ind] = s;
+            }
+          }
+
           klineChart.timeScale().fitContent();
+        };
+
+        const renderVolumeChart = () => {
+          const container = document.getElementById('volumeChart');
+          if (!container || !klineData.value.length) return;
+
+          if (volumeChart) volumeChart.remove();
+          volumeChart = LightweightCharts.createChart(container, {
+            width: container.clientWidth,
+            height: 150,
+            layout: { background: { color: '#0d1117' }, textColor: '#c9d1d9' },
+            grid: { vertLines: { color: '#30363d' }, horzLines: { color: '#30363d' } },
+            timeScale: { borderColor: '#30363d', visible: false },
+            rightPriceScale: { borderColor: '#30363d' },
+          });
+
+          const volSeries = volumeChart.addHistogramSeries({
+            color: '#3fb950',
+            priceFormat: { type: 'volume' },
+            priceScaleId: '',
+          });
+          volSeries.priceScale().applyOptions({
+            scaleMargins: { top: 0.1, bottom: 0 },
+          });
+
+          volSeries.setData(klineData.value.map(k => ({
+            time: k.trade_date,
+            value: k.vol,
+            color: k.close >= k.open ? '#3fb95080' : '#f8514980',
+          })));
+
+          // VOL_MA5
+          if (klineData.value[0].VOL_MA5 !== undefined) {
+            const volMA = volumeChart.addLineSeries({
+              color: '#ffa657', lineWidth: 1, priceScaleId: '',
+            });
+            volMA.setData(klineData.value.filter(k => k.VOL_MA5 !== undefined).map(k => ({
+              time: k.trade_date, value: k.VOL_MA5,
+            })));
+          }
+
+          volumeChart.timeScale().fitContent();
         };
 
         // --- Backtest ---
         const btForm = ref({
-          strategy_id: 'dual_ma_5_20',
+          strategy_id: 'turtle_breakout',
           universeText: '600519.SH',
-          start_date: '2026-04-01',
+          start_date: '2024-01-01',
           end_date: '2026-06-19',
           initial_cash: 1000000,
         });
         const btRunning = ref(false);
         const lastResult = ref(null);
+        const compareResults = ref([]);
         let equityChart = null;
 
         const runBacktest = async () => {
           btRunning.value = true;
-          lastResult.value = null;
           try {
             const universe = btForm.value.universeText.split(',').map(s => s.trim()).filter(Boolean);
             const r = await axios.post(`${API_BASE}/api/v1/backtest/run`, {
@@ -630,6 +793,38 @@
             renderEquityChart();
           } catch (e) {
             alert('回测失败: ' + (e.response?.data?.detail || e.message));
+          } finally {
+            btRunning.value = false;
+          }
+        };
+
+        const runAllStrategiesCompare = async () => {
+          btRunning.value = true;
+          compareResults.value = [];
+          try {
+            const universe = btForm.value.universeText.split(',').map(s => s.trim()).filter(Boolean);
+            for (const t of strategyTemplates.value) {
+              const r = await axios.post(`${API_BASE}/api/v1/backtest/run`, {
+                strategy_id: t.id,
+                start_date: btForm.value.start_date,
+                end_date: btForm.value.end_date,
+                universe: universe,
+                initial_cash: btForm.value.initial_cash,
+              });
+              compareResults.value.push(r.data);
+            }
+            await loadRuns();
+            // 把"赢家"也设成 lastResult 用于展示曲线
+            const winner = compareResults.value.reduce((a, b) =>
+              (b.metrics?.total_return || 0) > (a.metrics?.total_return || 0) ? b : a
+            );
+            if (winner) {
+              lastResult.value = winner;
+              await nextTick();
+              renderEquityChart();
+            }
+          } catch (e) {
+            alert('对比失败: ' + (e.response?.data?.detail || e.message));
           } finally {
             btRunning.value = false;
           }
@@ -684,7 +879,9 @@
           strategyTemplates,
           backtestRuns,
           selectedStock, klineFreq, klineData, openKline, loadKline,
+          activeIndicators, maIndicators, toggleIndicator,
           btForm, btRunning, lastResult, runBacktest,
+          compareResults, runAllStrategiesCompare,
         };
       },
     }).mount('#app');
