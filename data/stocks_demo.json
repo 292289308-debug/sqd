@@ -1,0 +1,82 @@
+[
+  {
+    "ts_code": "000001.SZ",
+    "symbol": "000001",
+    "name": "平安银行",
+    "industry": "银行",
+    "list_date": "19910403",
+    "market": "SZ"
+  },
+  {
+    "ts_code": "000002.SZ",
+    "symbol": "000002",
+    "name": "万科A",
+    "industry": "房地产",
+    "list_date": "19910129",
+    "market": "SZ"
+  },
+  {
+    "ts_code": "000333.SZ",
+    "symbol": "000333",
+    "name": "美的集团",
+    "industry": "家电",
+    "list_date": "20130918",
+    "market": "SZ"
+  },
+  {
+    "ts_code": "000858.SZ",
+    "symbol": "000858",
+    "name": "五粮液",
+    "industry": "白酒",
+    "list_date": "19980427",
+    "market": "SZ"
+  },
+  {
+    "ts_code": "600000.SH",
+    "symbol": "600000",
+    "name": "浦发银行",
+    "industry": "银行",
+    "list_date": "19991110",
+    "market": "SH"
+  },
+  {
+    "ts_code": "600036.SH",
+    "symbol": "600036",
+    "name": "招商银行",
+    "industry": "银行",
+    "list_date": "20020409",
+    "market": "SH"
+  },
+  {
+    "ts_code": "600519.SH",
+    "symbol": "600519",
+    "name": "贵州茅台",
+    "industry": "白酒",
+    "list_date": "20010827",
+    "market": "SH"
+  },
+  {
+    "ts_code": "600887.SH",
+    "symbol": "600887",
+    "name": "伊利股份",
+    "industry": "食品",
+    "list_date": "19960312",
+    "market": "SH"
+  },
+  {
+    "ts_code": "601318.SH",
+    "symbol": "601318",
+    "name": "中国平安",
+    "industry": "保险",
+    "list_date": "20070301",
+    "market": "SH"
+  },
+  {
+    "ts_code": "601398.SH",
+    "symbol": "601398",
+    "name": "工商银行",
+    "industry": "银行",
+    "list_date": "20061027",
+    "market": "SH"
+  }
+]
