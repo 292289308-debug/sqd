@@ -1,0 +1,102 @@
+# ============================================================
+# 灵眸量化 (SmartQuant Dashboard) - Docker Compose
+# 版本: v0.1  2026-06-19
+# 一键启动: docker compose up -d
+# 依赖: Docker 20+ / Docker Compose v2+
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ---------- 时序数据库 (TimescaleDB = PG 扩展) ----------
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: sqd-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sqd
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sqd_dev_pwd}
+      POSTGRES_DB: sqd
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sqd -d sqd"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- 缓存 + 实时队列 ----------
+  redis:
+    image: redis:7-alpine
+    container_name: sqd-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ---------- 后端 FastAPI ----------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sqd-backend
+    restart: unless-stopped
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sqd:${DB_PASSWORD:-sqd_dev_pwd}@timescaledb:5432/sqd
+      REDIS_URL: redis://redis:6379/0
+      TUSHARE_TOKEN: ${TUSHARE_TOKEN:-}
+      PAY_MODE: ${PAY_MODE:-mock}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_prod}
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # ---------- 前端 Vue 3 ----------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sqd-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_BASE: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+  # ---------- 监控 (可选) ----------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sqd-prometheus
+    profiles: ["monitoring"]  # 不默认启动: docker compose --profile monitoring up
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./scripts/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+volumes:
+  timescale_data:
+  redis_data:
