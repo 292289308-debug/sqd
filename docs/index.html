@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵眸量化 - SmartQuant Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --bg-elev: #131826;
+      --bg-card: #1a2138;
+      --border: #2a3650;
+      --text: #e8ecf4;
+      --text-dim: #8a96b0;
+      --accent: #4f8bff;
+      --accent-2: #00d4aa;
+      --warn: #ffb84d;
+      --up: #ff4d4d;     /* A股红涨 */
+      --down: #00d4aa;   /* A股绿跌 */
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-elev) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 56px;
+      font-weight: 800;
+      margin-bottom: 16px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .subtitle {
+      font-size: 20px;
+      color: var(--text-dim);
+      margin-bottom: 32px;
+    }
+    .badges {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .badge.accent { color: var(--accent); border-color: var(--accent); }
+    .badge.green { color: var(--accent-2); border-color: var(--accent-2); }
+    .cta {
+      display: inline-block;
+      padding: 12px 28px;
+      background: var(--accent);
+      color: white;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 0 8px;
+      transition: opacity 0.2s;
+    }
+    .cta:hover { opacity: 0.85; text-decoration: none; }
+    .cta.secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    /* Sections */
+    section { padding: 60px 0; }
+    section h2 {
+      font-size: 32px;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+    .card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+    .card p { color: var(--text-dim); font-size: 14px; }
+    .card .icon {
+      font-size: 32px;
+      margin-bottom: 12px;
+    }
+
+    /* Strategy Table */
+    .strategy-table {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      border-collapse: collapse;
+    }
+    .strategy-table th, .strategy-table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .strategy-table th {
+      background: var(--bg-elev);
+      font-weight: 600;
+      color: var(--text-dim);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .strategy-table tr:last-child td { border-bottom: none; }
+    .strategy-table tr:hover { background: var(--bg-elev); }
+    .num { font-family: "SF Mono", "Consolas", monospace; font-weight: 600; }
+    .up { color: var(--up); }
+    .down { color: var(--down); }
+    .star { color: var(--warn); }
+
+    /* Stack */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .tech {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px 12px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .tech strong { display: block; color: var(--accent); margin-bottom: 4px; }
+
+    /* Code */
+    pre {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    code { font-family: "SF Mono", "Consolas", monospace; }
+
+    /* Footer */
+    footer {
+      padding: 40px 0;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+    footer a { color: var(--accent); }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 36px; }
+      .hero .subtitle { font-size: 16px; }
+      section { padding: 40px 0; }
+      section h2 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="hero">
+    <div class="container">
+      <h1>📊 灵眸量化</h1>
+      <p class="subtitle">SmartQuant Dashboard · 股票量化看盘 + 回测 MVP</p>
+      <div class="badges">
+        <span class="badge accent">Vue 3</span>
+        <span class="badge accent">FastAPI</span>
+        <span class="badge green">TimescaleDB</span>
+        <span class="badge green">Tushare Pro</span>
+        <span class="badge">25 tests ✓</span>
+        <span class="badge">MIT License</span>
+      </div>
+      <a href="https://github.com/292289308-debug/sqd" class="cta">⭐ 查看 GitHub</a>
+      <a href="https://github.com/292289308-debug/sqd#快速开始" class="cta secondary">🚀 快速开始</a>
+    </div>
+  </header>
+
+  <section>
+    <div class="container">
+      <h2>✨ 核心功能</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="icon">📈</div>
+          <h3>行情看板</h3>
+          <p>100 只 Top 总市值股实时数据 · K 线 + 技术指标叠加 (MA/EMA/MACD/RSI/BOLL/KDJ) · 成交量副图</p>
+        </div>
+        <div class="card">
+          <div class="icon">🎯</div>
+          <h3>5 大策略</h3>
+          <p>双均线 / 海龟突破 / 布林带回归 / RSI 回归 · 茅台 5 年回测海龟突破 <span class="up">+37%</span> 跑赢基准</p>
+        </div>
+        <div class="card">
+          <div class="icon">⭐</div>
+          <h3>自选股</h3>
+          <p>分组管理 · 默认银行 / 白酒分组 · 模糊搜索 · 快速切换标的</p>
+        </div>
+        <div class="card">
+          <div class="icon">📊</div>
+          <h3>回测报告</h3>
+          <p>总收益 / 年化 / Alpha / 夏普 / 最大回撤 / 笔数 · 净值曲线对比 · 一键对比全部策略</p>
+        </div>
+        <div class="card">
+          <div class="icon">🐳</div>
+          <h3>Docker 一键</h3>
+          <p>docker-compose 启动后端 + TimescaleDB + Redis · 前端 CDN 单文件版免编译</p>
+        </div>
+        <div class="card">
+          <div class="icon">📡</div>
+          <h3>云端隧道</h3>
+          <p>Cloudflare Tunnel 暴露公网 · 实时 K 线 · 远程访问友好</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>🏆 5 年回测战绩 (贵州茅台 600519.SH)</h2>
+      <table class="strategy-table">
+        <thead>
+          <tr>
+            <th>策略</th>
+            <th>类型</th>
+            <th>总收益</th>
+            <th>夏普</th>
+            <th>最大回撤</th>
+            <th>点评</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="star">⭐</span> turtle_breakout</td>
+            <td>趋势跟踪</td>
+            <td class="num up">+37.09%</td>
+            <td class="num">0.65</td>
+            <td class="num down">-7.67%</td>
+            <td>跑赢基准近 30 个百分点</td>
+          </tr>
+          <tr>
+            <td>bollinger_revert</td>
+            <td>均值回归</td>
+            <td class="num up">+11.18%</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td>震荡市表现稳健</td>
+          </tr>
+          <tr>
+            <td>dual_ma_5_20</td>
+            <td>趋势跟踪</td>
+            <td class="num up">+9.43%</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td>100 笔交易</td>
+          </tr>
+          <tr>
+            <td>rsi_revert</td>
+            <td>均值回归</td>
+            <td class="num up">+2.16%</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td>保守策略</td>
+          </tr>
+          <tr>
+            <td><strong>买入持有基准</strong></td>
+            <td>—</td>
+            <td class="num">+7.52%</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+            <td>被动持有 5 年</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>🛠️ 技术栈</h2>
+      <div class="stack-grid">
+        <div class="tech"><strong>Vue 3</strong>CDN 单文件</div>
+        <div class="tech"><strong>FastAPI</strong>Python 3.11+</div>
+        <div class="tech"><strong>TimescaleDB</strong>时序数据库</div>
+        <div class="tech"><strong>Redis</strong>缓存 / 任务队列</div>
+        <div class="tech"><strong>Tushare Pro</strong>A 股数据源</div>
+        <div class="tech"><strong>Pandas</strong>数据处理</div>
+        <div class="tech"><strong>Lightweight Charts</strong>K 线图</div>
+        <div class="tech"><strong>ECharts</strong>净值曲线</div>
+        <div class="tech"><strong>Vite</strong>开发构建</div>
+        <div class="tech"><strong>Docker</strong>容器化部署</div>
+        <div class="tech"><strong>Cloudflare</strong>Tunnel 公网</div>
+        <div class="tech"><strong>pytest</strong>25 个测试</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>🚀 快速开始</h2>
+      <pre><code># 克隆仓库
+git clone https://github.com/292289308-debug/sqd.git
+cd sqd/backend
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 配置 Tushare token (可选)
+cp .env.example .env
+# 编辑 .env 填入 TUSHARE_TOKEN=***
+
+# 拉取真实 K 线数据
+cd ..
+python scripts/fetch_top100.py
+python scripts/fetch_skip_basic.py
+
+# 启动后端
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# 浏览器访问 http://localhost:8000</code></pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>🛣️ 路线图</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Phase 1 (MVP) ✓</h3>
+          <p>A 看盘 + B 回测 · 当前完成</p>
+        </div>
+        <div class="card">
+          <h3>Phase 2 (V1.1)</h3>
+          <p>C 实盘交易 · 券商对接 / 模拟盘</p>
+        </div>
+        <div class="card">
+          <h3>Phase 3 (V1.2)</h3>
+          <p>D 资讯聚合 · 新闻 / 研报 / 龙虎榜</p>
+        </div>
+        <div class="card">
+          <h3>Phase 4 (V2.0)</h3>
+          <p>多因子模型 / 组合优化 / 风险监控</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>
+        <a href="https://github.com/292289308-debug/sqd">📦 GitHub</a> ·
+        <a href="https://github.com/292289308-debug/sqd/blob/main/LICENSE">📜 MIT License</a> ·
+        <a href="mailto:292289308@qq.com">📮 联系作者</a>
+      </p>
+      <p style="margin-top: 16px; font-size: 12px;">
+        ⚠️ 本项目仅供学习和研究使用，不构成投资建议。投资有风险，入市需谨慎。
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
